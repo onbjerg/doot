@@ -1,8 +1,16 @@
 [package]
 name = "doot"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/doot-v{ version }-{ target }{ archive-suffix }"
+bin-dir = "doot{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
 
 [dependencies]
 bpaf = { version = "0.9", features = ["derive"] }
