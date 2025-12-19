@@ -5,7 +5,7 @@ A simple dotfile manager that copies or symlinks files between your system and a
 ## Installation
 
 ```bash
-cargo binstall doot
+cargo binstall --git https://github.com/onbjerg/doot doot
 ```
 
 ## Quick Start
