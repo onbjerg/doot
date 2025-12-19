@@ -9,9 +9,6 @@ pkg-url = "{ repo }/releases/download/v{ version }/doot-v{ version }-{ target }{
 bin-dir = "doot{ binary-ext }"
 pkg-fmt = "tgz"
 
-[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
-pkg-fmt = "zip"
-
 [dependencies]
 bpaf = { version = "0.9", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
