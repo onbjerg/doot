@@ -1,0 +1,94 @@
+# doot.yaml - Configuration file for doot dotfile manager
+#
+# This file defines how your dotfiles are organized and where they should be
+# placed on different systems.
+
+# Version of the configuration format (required)
+version: v1
+
+# Mode determines how files are transferred:
+#   - file: Copy files (default)
+#   - link: Create symbolic links
+mode: file
+
+# Plans are named collections of groups.
+# Use them to operate on multiple groups at once with a single command.
+#
+# Examples:
+#   doot import plan workstation nux
+#   doot export plan minimal mac
+#
+plans:
+  # Empty value means "all groups"
+  all:
+
+  # Explicit list of groups
+  workstation: [bash, vim, git, tmux]
+
+  # Minimal setup for servers
+  minimal: [bash, git]
+
+# Groups organize files by purpose/application.
+# Each group has one or more "resolvers" that map to destination paths.
+#
+# A resolver is just a name for a path. Use different resolvers for different
+# systems (e.g., "nux" for Linux, "mac" for macOS) or different machines.
+#
+# Path expansion:
+#   - ~ expands to home directory
+#   - $VAR or ${VAR} expands environment variables
+#
+# Examples:
+#   doot import group bash nux    # Import from ~ to ./bash/
+#   doot export group bash mac    # Export from ./bash/ to $HOME
+#
+groups:
+  bash:
+    nux: "~"
+    mac: "$HOME"
+
+  vim:
+    nux: "~"
+    mac: "$HOME"
+
+  git:
+    nux: "~"
+    mac: "${HOME}"
+
+  tmux:
+    nux: "~"
+    mac: "~"
+
+  # You can use any resolver name - they don't have to be OS names
+  ssh:
+    home: "~/.ssh"
+    work: "/home/shared/.ssh"
+
+# Directory structure for the above configuration:
+#
+# 📁 dotfiles/
+# ├── 📁 bash/
+# │   ├── 📄 .dootignore      # Controls which files to include
+# │   ├── 📄 .bashrc
+# │   └── 📄 .bash_profile
+# ├── 📁 vim/
+# │   ├── 📄 .dootignore
+# │   └── 📄 .vimrc
+# ├── 📁 git/
+# │   ├── 📄 .dootignore
+# │   └── 📄 .gitconfig
+# ├── 📁 tmux/
+# │   ├── 📄 .dootignore
+# │   └── 📄 .tmux.conf
+# ├── 📁 ssh/
+# │   ├── 📄 .dootignore
+# │   └── 📄 config
+# └── ⚙️ doot.yaml
+#
+# Each group directory has a .dootignore file that uses gitignore syntax:
+#
+#   *            # Ignore everything
+#   !.bashrc     # Except .bashrc
+#   !.profile    # And .profile
+#
+# If no .dootignore exists, no files are ignored.
