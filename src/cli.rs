@@ -31,6 +31,10 @@ pub enum Command {
         #[bpaf(external)]
         target: Target,
     },
+
+    /// List all plans, groups, and resolvers
+    #[bpaf(command)]
+    List,
 }
 
 #[derive(Debug, Clone, Bpaf)]

@@ -26,6 +26,7 @@ fn main() -> Result<()> {
     match args.command {
         Command::Import { target } => run_import(&config, &*store, &target, args.yes),
         Command::Export { target } => run_export(&config, &*store, &target, args.yes),
+        Command::List => run_list(&config),
     }
 }
 
@@ -117,4 +118,55 @@ fn get_operation_name(action: &str, target: &Target) -> String {
 fn get_group_dir(group_name: &str) -> Result<PathBuf> {
     let cwd = std::env::current_dir().context("Failed to get current directory")?;
     Ok(cwd.join(group_name))
+}
+
+fn run_list(config: &Config) -> Result<()> {
+    let mut plans: Vec<_> = config.plans.keys().collect();
+    plans.sort();
+
+    let mut groups: Vec<_> = config.groups.keys().collect();
+    groups.sort();
+
+    println!("Plans");
+    for (i, plan) in plans.iter().enumerate() {
+        let is_last = i == plans.len() - 1;
+        let prefix = if is_last { "└── " } else { "├── " };
+        let child_prefix = if is_last { "    " } else { "│   " };
+
+        let plan_groups = config.plans.get(*plan).unwrap();
+        match plan_groups {
+            None => println!("{prefix}{plan} (all groups)"),
+            Some(group_list) => {
+                println!("{prefix}{plan}");
+                println!("{child_prefix}└── {}", group_list.join(", "));
+            }
+        }
+    }
+
+    println!();
+    println!("Groups");
+    for (i, group) in groups.iter().enumerate() {
+        let is_last = i == groups.len() - 1;
+        let prefix = if is_last { "└── " } else { "├── " };
+        let child_prefix = if is_last { "    " } else { "│   " };
+
+        println!("{prefix}{group}");
+
+        let resolvers = config.groups.get(*group).unwrap();
+        let mut resolver_names: Vec<_> = resolvers.keys().collect();
+        resolver_names.sort();
+
+        for (j, resolver) in resolver_names.iter().enumerate() {
+            let is_last_resolver = j == resolver_names.len() - 1;
+            let resolver_prefix = if is_last_resolver {
+                "└── "
+            } else {
+                "├── "
+            };
+            let path = resolvers.get(*resolver).unwrap();
+            println!("{child_prefix}{resolver_prefix}{resolver} → {path}");
+        }
+    }
+
+    Ok(())
 }
