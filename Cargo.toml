@@ -15,7 +15,6 @@ bpaf = { version = "0.9", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 anyhow = "1.0"
-thiserror = "2.0"
 walkdir = "2.4"
 sha2 = "0.10"
 glob = "0.3"
@@ -23,8 +22,6 @@ similar = { version = "2.3", features = ["inline"] }
 hex = "0.4"
 colored = "3.0"
 syntect = "5.2"
-log = "0.4"
 env_logger = "0.11"
-regex = "1.10"
 shellexpand = "3.0"
 dirs = "6.0"
