@@ -4,16 +4,19 @@ mod executor;
 mod ignore;
 mod plan;
 mod resolver;
+mod status;
 mod store;
 
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 
 use cli::{Command, Target};
+use colored::Colorize;
 use config::Config;
 use executor::Executor;
 use ignore::IgnoreRules;
 use plan::{Plan, PlanBuilder};
+use status::{FileState, GroupStatus, StatusChecker};
 use store::create_store;
 
 fn main() -> Result<()> {
@@ -27,6 +30,7 @@ fn main() -> Result<()> {
         Command::Import { target } => run_import(&config, &*store, &target, args.yes),
         Command::Export { target } => run_export(&config, &*store, &target, args.yes),
         Command::List => run_list(&config),
+        Command::Status { verbose, resolver } => run_status(&config, &*store, &resolver, verbose),
     }
 }
 
@@ -169,4 +173,80 @@ fn run_list(config: &Config) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn run_status(
+    config: &Config,
+    store: &dyn store::Store,
+    resolver: &str,
+    verbose: bool,
+) -> Result<()> {
+    let checker = StatusChecker::new(config, store, resolver.to_string());
+
+    let group_results = checker.check_all_groups()?;
+    let plan_results = checker.check_all_plans(&group_results);
+
+    println!("Plans ({})", resolver);
+    for (i, plan) in plan_results.iter().enumerate() {
+        let is_last = i == plan_results.len() - 1;
+        let prefix = if is_last { "└── " } else { "├── " };
+
+        print_status_line(prefix, &plan.name, &plan.status);
+    }
+
+    println!();
+    println!("Groups ({})", resolver);
+    for (i, group) in group_results.iter().enumerate() {
+        let is_last = i == group_results.len() - 1;
+        let prefix = if is_last { "└── " } else { "├── " };
+        let child_prefix = if is_last { "    " } else { "│   " };
+
+        print_status_line(prefix, &group.name, &group.status);
+
+        if verbose && group.status != GroupStatus::Skipped {
+            for (j, file) in group.files.iter().enumerate() {
+                let is_last_file = j == group.files.len() - 1;
+                let file_prefix = if is_last_file {
+                    "└── "
+                } else {
+                    "├── "
+                };
+
+                print_file_status_line(child_prefix, file_prefix, &file.relative_path, &file.state);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn print_status_line(prefix: &str, name: &str, status: &GroupStatus) {
+    match status {
+        GroupStatus::InSync => {
+            println!("{prefix}[{}] {}", "✓".blue(), name);
+        }
+        GroupStatus::OutOfSync => {
+            println!("{prefix}[{}] {}", "~".yellow(), name);
+        }
+        GroupStatus::New => {
+            println!("{prefix}[{}] {}", "+".green(), name);
+        }
+        GroupStatus::Skipped => {
+            println!("{prefix}{}", name.dimmed());
+        }
+    }
+}
+
+fn print_file_status_line(child_prefix: &str, file_prefix: &str, path: &str, state: &FileState) {
+    match state {
+        FileState::InSync => {
+            println!("{child_prefix}{file_prefix}[{}] {}", "✓".blue(), path);
+        }
+        FileState::Modified => {
+            println!("{child_prefix}{file_prefix}[{}] {}", "~".yellow(), path);
+        }
+        FileState::New => {
+            println!("{child_prefix}{file_prefix}[{}] {}", "+".green(), path);
+        }
+    }
 }

@@ -35,6 +35,18 @@ pub enum Command {
     /// List all plans, groups, and resolvers
     #[bpaf(command)]
     List,
+
+    /// Show sync status for all plans and groups
+    #[bpaf(command)]
+    Status {
+        /// Show individual file status
+        #[bpaf(short, long)]
+        verbose: bool,
+
+        /// Name of the resolver
+        #[bpaf(positional("RESOLVER"))]
+        resolver: String,
+    },
 }
 
 #[derive(Debug, Clone, Bpaf)]
