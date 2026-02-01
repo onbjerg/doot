@@ -1,6 +1,7 @@
 use crate::ignore::IgnoreRules;
 use crate::store::Store;
 use anyhow::Result;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -82,62 +83,62 @@ impl<'a> PlanBuilder<'a> {
     }
 
     pub fn build_import(&self, group_dir: &Path, resolved_path: &Path) -> Result<Vec<FileEntry>> {
-        let mut entries = Vec::new();
-
-        for entry in WalkDir::new(resolved_path)
+        let mut entries: Vec<FileEntry> = WalkDir::new(resolved_path)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
-        {
-            let full_path = entry.path();
-            let relative = full_path.strip_prefix(resolved_path)?;
-            let relative_str = relative.to_string_lossy();
+            .par_bridge()
+            .filter_map(|entry| {
+                let full_path = entry.path();
+                let relative = full_path.strip_prefix(resolved_path).ok()?;
+                let relative_str = relative.to_string_lossy();
 
-            if !self.ignore_rules.is_included(&relative_str) {
-                continue;
-            }
+                if !self.ignore_rules.is_included(&relative_str) {
+                    return None;
+                }
 
-            let destination = group_dir.join(relative);
-            let status = self.compute_status(full_path, &destination);
+                let destination = group_dir.join(relative);
+                let status = self.compute_status(full_path, &destination);
 
-            entries.push(FileEntry {
-                relative_path: relative.to_path_buf(),
-                source: full_path.to_path_buf(),
-                destination,
-                status,
-            });
-        }
+                Some(FileEntry {
+                    relative_path: relative.to_path_buf(),
+                    source: full_path.to_path_buf(),
+                    destination,
+                    status,
+                })
+            })
+            .collect();
 
         entries.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
         Ok(entries)
     }
 
     pub fn build_export(&self, group_dir: &Path, resolved_path: &Path) -> Result<Vec<FileEntry>> {
-        let mut entries = Vec::new();
-
-        for entry in WalkDir::new(group_dir)
+        let mut entries: Vec<FileEntry> = WalkDir::new(group_dir)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
-        {
-            let full_path = entry.path();
-            let relative = full_path.strip_prefix(group_dir)?;
-            let relative_str = relative.to_string_lossy();
+            .par_bridge()
+            .filter_map(|entry| {
+                let full_path = entry.path();
+                let relative = full_path.strip_prefix(group_dir).ok()?;
+                let relative_str = relative.to_string_lossy();
 
-            if relative_str == ".dootignore" {
-                continue;
-            }
+                if relative_str == ".dootignore" {
+                    return None;
+                }
 
-            let destination = resolved_path.join(relative);
-            let status = self.compute_status(full_path, &destination);
+                let destination = resolved_path.join(relative);
+                let status = self.compute_status(full_path, &destination);
 
-            entries.push(FileEntry {
-                relative_path: relative.to_path_buf(),
-                source: full_path.to_path_buf(),
-                destination,
-                status,
-            });
-        }
+                Some(FileEntry {
+                    relative_path: relative.to_path_buf(),
+                    source: full_path.to_path_buf(),
+                    destination,
+                    status,
+                })
+            })
+            .collect();
 
         entries.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
         Ok(entries)
