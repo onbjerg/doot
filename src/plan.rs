@@ -128,6 +128,10 @@ impl<'a> PlanBuilder<'a> {
                 continue;
             }
 
+            if !self.ignore_rules.is_included(&relative_str) {
+                continue;
+            }
+
             let destination = resolved_path.join(relative);
             let status = self.compute_status(full_path, &destination);
 
