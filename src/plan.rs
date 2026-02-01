@@ -86,7 +86,6 @@ impl<'a> PlanBuilder<'a> {
 
         let mut builder = WalkBuilder::new(resolved_path);
         builder.standard_filters(false);
-        builder.add_custom_ignore_filename(".dootignore");
         builder.add_ignore(ignore_file);
         let walker = builder.build();
 
