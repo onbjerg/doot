@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::ignore::IgnoreRules;
 use crate::resolver;
 use crate::store::Store;
 use anyhow::Result;
@@ -78,6 +79,9 @@ impl<'a> StatusChecker<'a> {
             });
         }
 
+        let ignore_path = group_dir.join(".dootignore");
+        let ignore_rules = IgnoreRules::load(&ignore_path)?;
+
         let mut files = Vec::new();
         let mut has_changes = false;
         let mut all_new = true;
@@ -95,6 +99,10 @@ impl<'a> StatusChecker<'a> {
             let full_path = entry.path();
             let relative = full_path.strip_prefix(&group_dir)?;
             let relative_str = relative.to_string_lossy();
+
+            if !ignore_rules.is_included(&relative_str) {
+                continue;
+            }
 
             let destination = resolved_path.join(relative);
             let state = self.compute_file_state(full_path, &destination);

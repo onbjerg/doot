@@ -129,6 +129,10 @@ impl<'a> PlanBuilder<'a> {
             let full_path = entry.path();
             let relative = full_path.strip_prefix(group_dir)?;
 
+            if !self.ignore_rules.is_included(&relative_str) {
+                continue;
+            }
+
             let destination = resolved_path.join(relative);
             let status = self.compute_status(full_path, &destination);
 
