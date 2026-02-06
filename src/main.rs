@@ -1,7 +1,6 @@
 mod cli;
 mod config;
 mod executor;
-mod ignore;
 mod plan;
 mod resolver;
 mod status;
@@ -14,7 +13,6 @@ use cli::{Command, Target};
 use colored::Colorize;
 use config::Config;
 use executor::Executor;
-use ignore::IgnoreRules;
 use plan::{Plan, PlanBuilder};
 use status::{FileState, GroupStatus, StatusChecker};
 use store::create_store;
@@ -46,16 +44,14 @@ fn run_import(
 
     let mut plan = Plan::new();
 
+    let plan_builder = PlanBuilder::new(store);
     for group_name in groups {
         let resolved_path = config.get_resolver(&group_name, &resolver_name)?;
         let resolved_path = resolver::resolve_path(resolved_path)?;
         let group_dir = get_group_dir(&group_name)?;
-
         let ignore_path = group_dir.join(".dootignore");
-        let ignore_rules = IgnoreRules::load(&ignore_path)?;
 
-        let plan_builder = PlanBuilder::new(store, &ignore_rules);
-        let entries = plan_builder.build_import(&group_dir, &resolved_path)?;
+        let entries = plan_builder.build_import(&group_dir, &resolved_path, &ignore_path)?;
         plan.add_group(group_name, entries);
     }
 
@@ -77,15 +73,12 @@ fn run_export(
 
     let mut plan = Plan::new();
 
+    let plan_builder = PlanBuilder::new(store);
     for group_name in groups {
         let resolved_path = config.get_resolver(&group_name, &resolver_name)?;
         let resolved_path = resolver::resolve_path(resolved_path)?;
         let group_dir = get_group_dir(&group_name)?;
 
-        let ignore_path = group_dir.join(".dootignore");
-        let ignore_rules = IgnoreRules::load(&ignore_path)?;
-
-        let plan_builder = PlanBuilder::new(store, &ignore_rules);
         let entries = plan_builder.build_export(&group_dir, &resolved_path)?;
         plan.add_group(group_name, entries);
     }

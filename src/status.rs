@@ -1,10 +1,9 @@
 use crate::config::Config;
-use crate::ignore::IgnoreRules;
 use crate::resolver;
 use crate::store::Store;
 use anyhow::Result;
+use ignore::WalkBuilder;
 use std::path::Path;
-use walkdir::WalkDir;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GroupStatus {
@@ -79,29 +78,23 @@ impl<'a> StatusChecker<'a> {
             });
         }
 
-        let ignore_path = group_dir.join(".dootignore");
-        let ignore_rules = IgnoreRules::load(&ignore_path)?;
-
         let mut files = Vec::new();
         let mut has_changes = false;
         let mut all_new = true;
 
-        for entry in WalkDir::new(&group_dir)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
-        {
+        let walker = WalkBuilder::new(&group_dir)
+            .standard_filters(false)
+            .add_custom_ignore_filename(".dootignore")
+            .build();
+
+        for entry in walker.filter_map(|e| e.ok()) {
+            if !entry.file_type().is_some_and(|ft| ft.is_file()) {
+                continue;
+            }
+
             let full_path = entry.path();
             let relative = full_path.strip_prefix(&group_dir)?;
             let relative_str = relative.to_string_lossy();
-
-            if relative_str == ".dootignore" {
-                continue;
-            }
-
-            if !ignore_rules.is_included(&relative_str) {
-                continue;
-            }
 
             let destination = resolved_path.join(relative);
             let state = self.compute_file_state(full_path, &destination);

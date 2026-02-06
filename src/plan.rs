@@ -1,8 +1,7 @@
-use crate::ignore::IgnoreRules;
 use crate::store::Store;
 use anyhow::Result;
+use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FileStatus {
@@ -70,32 +69,33 @@ impl Plan {
 
 pub struct PlanBuilder<'a> {
     store: &'a dyn Store,
-    ignore_rules: &'a IgnoreRules,
 }
 
 impl<'a> PlanBuilder<'a> {
-    pub fn new(store: &'a dyn Store, ignore_rules: &'a IgnoreRules) -> Self {
-        Self {
-            store,
-            ignore_rules,
-        }
+    pub fn new(store: &'a dyn Store) -> Self {
+        Self { store }
     }
 
-    pub fn build_import(&self, group_dir: &Path, resolved_path: &Path) -> Result<Vec<FileEntry>> {
+    pub fn build_import(
+        &self,
+        group_dir: &Path,
+        resolved_path: &Path,
+        ignore_file: &Path,
+    ) -> Result<Vec<FileEntry>> {
         let mut entries = Vec::new();
 
-        for entry in WalkDir::new(resolved_path)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
-        {
-            let full_path = entry.path();
-            let relative = full_path.strip_prefix(resolved_path)?;
-            let relative_str = relative.to_string_lossy();
+        let mut builder = WalkBuilder::new(resolved_path);
+        builder.standard_filters(false);
+        builder.add_ignore(ignore_file);
+        let walker = builder.build();
 
-            if !self.ignore_rules.is_included(&relative_str) {
+        for entry in walker.filter_map(|e| e.ok()) {
+            if !entry.file_type().is_some_and(|ft| ft.is_file()) {
                 continue;
             }
+
+            let full_path = entry.path();
+            let relative = full_path.strip_prefix(resolved_path)?;
 
             let destination = group_dir.join(relative);
             let status = self.compute_status(full_path, &destination);
@@ -115,22 +115,18 @@ impl<'a> PlanBuilder<'a> {
     pub fn build_export(&self, group_dir: &Path, resolved_path: &Path) -> Result<Vec<FileEntry>> {
         let mut entries = Vec::new();
 
-        for entry in WalkDir::new(group_dir)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
-        {
+        let walker = WalkBuilder::new(group_dir)
+            .standard_filters(false)
+            .add_custom_ignore_filename(".dootignore")
+            .build();
+
+        for entry in walker.filter_map(|e| e.ok()) {
+            if !entry.file_type().is_some_and(|ft| ft.is_file()) {
+                continue;
+            }
+
             let full_path = entry.path();
             let relative = full_path.strip_prefix(group_dir)?;
-            let relative_str = relative.to_string_lossy();
-
-            if relative_str == ".dootignore" {
-                continue;
-            }
-
-            if !self.ignore_rules.is_included(&relative_str) {
-                continue;
-            }
 
             let destination = resolved_path.join(relative);
             let status = self.compute_status(full_path, &destination);
@@ -253,8 +249,7 @@ mod tests {
     #[test]
     fn status_create_when_destination_missing() {
         let store = MockStore::new().with_file("/src/file", b"content");
-        let ignore = IgnoreRules::parse("").unwrap();
-        let builder = PlanBuilder::new(&store, &ignore);
+        let builder = PlanBuilder::new(&store);
 
         let status = builder.compute_status(Path::new("/src/file"), Path::new("/dst/file"));
         assert_eq!(status, FileStatus::Create);
@@ -265,8 +260,7 @@ mod tests {
         let store = MockStore::new()
             .with_file("/src/file", b"content")
             .with_file("/dst/file", b"content");
-        let ignore = IgnoreRules::parse("").unwrap();
-        let builder = PlanBuilder::new(&store, &ignore);
+        let builder = PlanBuilder::new(&store);
 
         let status = builder.compute_status(Path::new("/src/file"), Path::new("/dst/file"));
         assert_eq!(status, FileStatus::Same);
@@ -277,8 +271,7 @@ mod tests {
         let store = MockStore::new()
             .with_file("/src/file", b"new content")
             .with_file("/dst/file", b"old content");
-        let ignore = IgnoreRules::parse("").unwrap();
-        let builder = PlanBuilder::new(&store, &ignore);
+        let builder = PlanBuilder::new(&store);
 
         let status = builder.compute_status(Path::new("/src/file"), Path::new("/dst/file"));
         assert_eq!(status, FileStatus::Overwrite);
