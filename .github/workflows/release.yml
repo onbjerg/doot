@@ -51,7 +51,7 @@ jobs:
           cd target/${{ matrix.target }}/release
           tar czvf ../../../doot-${{ github.ref_name }}-${{ matrix.target }}.tar.gz doot
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: doot-${{ matrix.target }}
           path: doot-${{ github.ref_name }}-${{ matrix.target }}.*
